@@ -69,11 +69,18 @@ namespace JellyJob.Core.Pipeline
                 Logger.LogInformation("Wrote {Output} ({Count} ad break(s) {Handling})", outputPath, breaks.Count,
                     config.AdHandling == AdHandling.Cut ? "cut" : "marked");
             }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to process {Recording}", job.Path);
+            }
             finally
             {
                 job.Stage = null;
                 job.Progress = null;
-                File.Delete(partialPath);
+                if (File.Exists(partialPath))
+                {
+                    File.Delete(partialPath);
+                }
                 DeleteDirectory(workDirectory);
             }
         }
