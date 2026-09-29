@@ -1,0 +1,95 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    const string curlArguments = "-fsS -X POST http://host.docker.internal:5238/process --data-urlencode \"path={path}\"";
+}
+
+<div class="page-head">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="muted">Recordings Jellyfin hands off when they finish, and what the pipeline did with them.</p>
+    </div>
+    <span class="live" title="The job list refreshes every few seconds">
+        <span class="live-dot"></span> Live
+    </span>
+</div>
+
+<div id="jobs" data-refresh="@Url.Page("/Index", "Jobs")">
+    <partial name="_Jobs" model="Model.Jobs" />
+</div>
+
+<div class="columns">
+    <section class="card">
+        <header class="card-head">
+            <h2>Jellyfin setup</h2>
+            <span class="tag">Live TV → Recording post-processing</span>
+        </header>
+        <p class="muted">
+            Jellyfin runs the post-processor when a recording finishes, with <code>{path}</code> replaced by the
+            recording's path. Set these two fields in Jellyfin's Live TV settings.
+        </p>
+
+        <label class="field-label">Post-processor application</label>
+        <div class="code">
+            <code>/usr/bin/curl</code>
+            <button type="button" class="copy" data-copy="/usr/bin/curl">Copy</button>
+        </div>
+
+        <label class="field-label">Post-processor command line arguments</label>
+        <div class="code">
+            <code>@curlArguments</code>
+            <button type="button" class="copy" data-copy="@curlArguments">Copy</button>
+        </div>
+
+        <p class="hint">
+            Jellyfin starts curl directly rather than through a shell, so single quotes are not quoting and a
+            <code>-d '{"path":"{path}"}'</code> body arrives mangled. Double quotes work.
+            On Linux, give the Jellyfin container <code>host.docker.internal:host-gateway</code> under
+            <code>extra_hosts</code>, or put both containers on one network and use <code>http://jellyjob:5238</code>.
+        </p>
+    </section>
+
+    <div class="stack">
+        <section class="card">
+            <header class="card-head">
+                <h2>Configuration</h2>
+            </header>
+            <dl class="config">
+                <dt>Ads</dt>
+                <dd>@(Model.Config.AdHandling == JellyJob.Core.ValueObjects.AdHandling.Cut ? "Cut out" : "Marked (.edl)")</dd>
+                <dt>Video</dt>
+                <dd><code>@Model.Config.VideoEncoder</code> · preset <code>@Model.Config.VideoPreset</code> · quality <code>@Model.Config.VideoQuality</code></dd>
+                <dt>Input</dt>
+                <dd><code>@(Model.Config.InputDirectory ?? "not set")</code></dd>
+                <dt>Output</dt>
+                <dd><code>@Model.Config.OutputDirectory</code></dd>
+                <dt>Data</dt>
+                <dd><code>@Model.Config.DataDirectory</code></dd>
+                <dt>Job history</dt>
+                <dd>@Model.Config.JobHistoryLimit jobs</dd>
+            </dl>
+            <p class="hint">
+                Set with environment variables, e.g. <code>JellyJob__OutputDirectory=/output</code>.
+            </p>
+        </section>
+
+        <section class="card">
+            <header class="card-head">
+                <h2>Queue a recording</h2>
+            </header>
+            @if (Model.Config.InputDirectory is not null)
+            {
+                <p class="muted">Run the pipeline on a recording by hand, without waiting for Jellyfin.</p>
+                <a class="button" asp-page="/Recordings">Browse recordings</a>
+            }
+            else
+            {
+                <p class="muted">
+                    Set <code>JellyJob__InputDirectory</code> to Jellyfin's recordings folder (as mounted in this
+                    container) to pick recordings to run by hand.
+                </p>
+            }
+        </section>
+    </div>
+</div>

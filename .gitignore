@@ -1,0 +1,10 @@
+**/.vs/
+.vscode/
+.idea/
+
+**/bin/
+**/obj/
+
+*.user
+
+.claude/settings.local.json

@@ -1,0 +1,112 @@
+@using JellyJob.Core.Jobs
+@using JellyJob.Core.ValueObjects
+@model IReadOnlyList<RecordingJob>
+@{
+    int Count(JobStatus status) => Model.Count(j => j.Status == status);
+
+    static string Format(TimeSpan? duration) => duration switch
+    {
+        null => "—",
+        { TotalHours: >= 1 } d => $"{(int)d.TotalHours}h {d.Minutes}m",
+        { TotalMinutes: >= 1 } d => $"{d.Minutes}m {d.Seconds}s",
+        { } d => $"{d.Seconds}s",
+    };
+}
+
+<div class="tiles">
+    <div class="tile">
+        <span class="tile-label">Queued</span>
+        <span class="tile-value">@Count(JobStatus.Queued)</span>
+    </div>
+    <div class="tile tile-running">
+        <span class="tile-label">Running</span>
+        <span class="tile-value">@Count(JobStatus.Running)</span>
+    </div>
+    <div class="tile tile-good">
+        <span class="tile-label">Succeeded</span>
+        <span class="tile-value">@Count(JobStatus.Succeeded)</span>
+    </div>
+    <div class="tile tile-bad">
+        <span class="tile-label">Failed</span>
+        <span class="tile-value">@Count(JobStatus.Failed)</span>
+    </div>
+</div>
+
+<section class="card card-flush">
+    <header class="card-head">
+        <h2>Recent jobs</h2>
+        <span class="muted small">Unfinished jobs resume after a restart</span>
+    </header>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+                <rect x="6" y="10" width="36" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" />
+                <path d="M18 40h12M24 34v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                <path d="M21 17l8 5-8 5z" fill="currentColor" />
+            </svg>
+            <p><strong>No recordings yet</strong></p>
+            <p class="muted">Jobs show up here when Jellyfin finishes a recording and calls <code>POST /process</code>.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="jobs">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Recording</th>
+                        <th>Received</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var job in Model)
+                    {
+                        <tr>
+                            <td><span class="pill pill-@job.Status.ToString().ToLowerInvariant()">@job.Status</span></td>
+                            <td class="recording">
+                                <span class="file" title="@job.Path">@System.IO.Path.GetFileName(job.Path)</span>
+                                <span class="dir">@System.IO.Path.GetDirectoryName(job.Path)</span>
+                                @if (job.Stage is not null)
+                                {
+                                    <span class="stage">
+                                        @job.Stage@(job.Progress is { } p ? $" · {p:0}%" : "")
+                                    </span>
+                                    @if (job.Progress is { } progress)
+                                    {
+                                        <span class="progress"><span style="width: @progress.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="progress progress-indeterminate"><span></span></span>
+                                    }
+                                }
+                                @if (job.AdBreakCount is { } breaks && job.Status != JobStatus.Running)
+                                {
+                                    <span class="meta">@(breaks == 1 ? "1 ad break" : $"{breaks} ad breaks")</span>
+                                }
+                                @if (job.OutputPath is not null)
+                                {
+                                    <span class="output" title="@job.OutputPath">→ @job.OutputPath</span>
+                                }
+                                @if (job.Error is not null)
+                                {
+                                    @* Tool output runs to many lines; show the first and let the rest expand. site.js keeps it open across refreshes. *@
+                                    <details class="error" data-job="@job.Id">
+                                        <summary>@job.Error.Split('\n')[0]</summary>
+                                        <pre>@job.Error</pre>
+                                    </details>
+                                }
+                            </td>
+                            <td><time datetime="@job.ReceivedAt.ToString("o")">@job.ReceivedAt.ToString("g")</time></td>
+                            <td class="num">@Format(job.Duration)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

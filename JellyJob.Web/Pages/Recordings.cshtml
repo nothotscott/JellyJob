@@ -1,0 +1,99 @@
+@page
+@using JellyJob.Core.ValueObjects
+@model RecordingsModel
+@{
+    ViewData["Title"] = "Recordings";
+
+    static string Size(long bytes) => bytes switch
+    {
+        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.0} GB",
+        >= 1L << 20 => $"{bytes / (double)(1L << 20):0} MB",
+        _ => $"{bytes / 1024.0:0} KB",
+    };
+}
+
+<div class="page-head">
+    <div>
+        <h1>Recordings</h1>
+        @if (Model.Library.IsEnabled)
+        {
+            <p class="muted">@Model.Count recordings in <code>@Model.Library.Root</code>. Queue one to run it through the pipeline now.</p>
+        }
+    </div>
+    @if (Model.Count > 0)
+    {
+        <input type="search" class="search" data-filter=".folder" placeholder="Filter recordings" aria-label="Filter recordings" />
+    }
+</div>
+
+@if (Model.QueuedMessage is not null)
+{
+    <div class="banner banner-good" role="status">@Model.QueuedMessage · <a asp-page="/Index">Watch it on the dashboard</a></div>
+}
+@if (Model.QueueError is not null)
+{
+    <div class="banner banner-bad" role="alert">@Model.QueueError</div>
+}
+
+@if (!Model.Library.IsEnabled)
+{
+    <section class="card empty">
+        <p><strong>Manual queueing is off</strong></p>
+        <p class="muted">
+            Set <code>JellyJob__InputDirectory</code> to Jellyfin's recordings folder, as mounted in this container,
+            to list the recordings here.
+        </p>
+    </section>
+}
+else if (Model.Count == 0)
+{
+    <section class="card empty">
+        <p><strong>No recordings found</strong></p>
+        <p class="muted">Nothing matching <code>*.ts</code> below <code>@Model.Library.Root</code>.</p>
+    </section>
+}
+else
+{
+    @foreach (var folder in Model.Folders)
+    {
+        <section class="card card-flush folder" data-search="@folder.Key.ToLowerInvariant() @string.Join(' ', folder.Select(r => r.Name.ToLowerInvariant()))">
+            <header class="card-head">
+                <h2>@(folder.Key.Length > 0 ? folder.Key : "(top level)")</h2>
+                <span class="muted small">@(folder.Count() == 1 ? "1 recording" : $"{folder.Count()} recordings")</span>
+            </header>
+            <ul class="recordings">
+                @foreach (var recording in folder)
+                {
+                    var job = Model.LatestJob(recording);
+                    var busy = job?.Status is JobStatus.Queued or JobStatus.Running;
+                    <li>
+                        <div class="recording-info">
+                            <span class="file" title="@recording.FullPath">@recording.Name</span>
+                            <span class="muted small">
+                                <time datetime="@recording.Modified.ToString("o")">@recording.Modified.ToString("g")</time>
+                                · @Size(recording.Size)
+                            </span>
+                        </div>
+                        <div class="recording-state">
+                            @if (job is not null)
+                            {
+                                <span class="pill pill-@job.Status.ToString().ToLowerInvariant()" title="Last run">@job.Status</span>
+                            }
+                            @if (recording.OutputExists)
+                            {
+                                <span class="tag" title="@recording.OutputPath">Output exists</span>
+                            }
+                            <form method="post" asp-page-handler="Queue">
+                                <input type="hidden" name="relativePath" value="@recording.RelativePath" />
+                                <button type="submit" class="button button-small" disabled="@busy">
+                                    @(busy ? "In queue" : recording.OutputExists || job is not null ? "Run again" : "Queue")
+                                </button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+    <p class="muted small no-matches" hidden>No recordings match.</p>
+}

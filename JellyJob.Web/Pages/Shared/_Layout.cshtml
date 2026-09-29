@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>@(ViewData["Title"] is string title ? $"{title} · JellyJob" : "JellyJob")</title>
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" asp-page="/Index">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="brand-gradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="var(--accent-1)" />
+                            <stop offset="1" stop-color="var(--accent-2)" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="32" height="32" rx="9" fill="url(#brand-gradient)" />
+                    <path d="M8 15a8 8 0 0 1 16 0z" fill="#fff" />
+                    <path d="M11 17.5v5.5M16 17.5v7M21 17.5v5.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none" />
+                </svg>
+                <span class="brand-text">
+                    <strong>JellyJob</strong>
+                    <small>Post-recording pipeline for Jellyfin</small>
+                </span>
+            </a>
+            @{
+                var currentPage = ViewContext.RouteData.Values["page"] as string;
+            }
+            <nav class="nav">
+                <a asp-page="/Index" class="@(currentPage == "/Index" ? "active" : null)">Dashboard</a>
+                <a asp-page="/Recordings" class="@(currentPage == "/Recordings" ? "active" : null)">Recordings</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="page">
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        JellyJob · <a href="https://github.com/nothotscott/JellyJob">Source</a>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

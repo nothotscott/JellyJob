@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="JellyJob.Core/JellyJob.Core.csproj" />
+  <Project Path="JellyJob.Web/JellyJob.Web.csproj" />
+</Solution>

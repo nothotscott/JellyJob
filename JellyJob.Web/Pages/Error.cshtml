@@ -1,0 +1,17 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<section class="card error-card">
+    <h1>Something went wrong</h1>
+    <p class="muted">An error occurred while processing your request. The container log has the details.</p>
+
+    @if (Model.ShowRequestId)
+    {
+        <p><strong>Request ID:</strong> <code>@Model.RequestId</code></p>
+    }
+
+    <a class="button" asp-page="/Index">Back to the dashboard</a>
+</section>
