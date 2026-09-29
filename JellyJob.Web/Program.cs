@@ -6,6 +6,7 @@ using JellyJob.Core.Pipeline;
 using JellyJob.Core.Stores;
 using JellyJob.Web.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +58,21 @@ builder.Services.AddHostedService<JobWorker>();
 
 var app = builder.Build();
 
+// Before anything touches the volumes (Data Protection reads {DataDirectory}/keys as the host starts), so a
+// permissions problem is one line naming the fix rather than a stack trace from deep inside ASP.NET Core.
+var config = app.Services.GetRequiredService<IOptions<JellyJobConfiguration>>().Value;
+try
+{
+    DirectoryAccess.EnsureWritable(config.DataDirectory, nameof(config.DataDirectory));
+    DirectoryAccess.EnsureWritable(config.OutputDirectory, nameof(config.OutputDirectory));
+    if (config.InputDirectory is not null) DirectoryAccess.EnsureReadable(config.InputDirectory, nameof(config.InputDirectory));
+}
+catch (InvalidOperationException ex)
+{
+    app.Logger.LogCritical("{Problem}", ex.Message);
+    return 1;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -73,3 +89,4 @@ app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+return 0;

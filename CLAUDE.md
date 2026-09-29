@@ -55,6 +55,11 @@ No CSS framework: the UI is hand-written `wwwroot/css/site.css` with light/dark 
   the same host folder at different paths. Jobs store the local path. Without `InputDirectory`, paths must
   match exactly; `RecordingPath.Problem` rejects the rest with a 422.
 - The input is only read (comskip writes into `{DataDirectory}/work`), so it can be mounted `:ro`.
+- **Volume permissions are checked before the host starts** (`DirectoryAccess`, called from `Program.cs`):
+  Data/Output writable, Input readable, else log one critical line with the uid:gid (from
+  `/proc/self/status`) and exit 1. Real-world cause: Docker creates missing bind-mount folders as root
+  while the container runs as `user: 1000:1000`; without the check it surfaced as Data Protection's
+  "Access to the path '/data/keys' is denied".
 - Jobs left `Queued` or `Running` are re-queued at startup (`JobQueue.RecoverAsync`), and an interrupted
   job starts over, so pipeline steps must tolerate leftovers from a partial run (write to a temp name,
   then move).

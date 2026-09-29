@@ -55,10 +55,28 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, video, utility]
 ```
 
 Compose's list form of `environment` takes `NAME=value`; `- NAME: value` in a list is a YAML map, which
 Compose rejects.
+
+**Create the host folders first, owned by the `user:` above.** Docker creates a missing bind-mount folder
+itself, owned by root, and JellyJob (running as 1000) then can't write to it:
+
+```sh
+sudo mkdir -p /mnt/your-docker-data/jellyjob/data /mnt/media-library/recordings
+sudo chown 1000:1000 /mnt/your-docker-data/jellyjob/data /mnt/media-library/recordings
+```
+
+JellyJob checks at startup that it can write to `DataDirectory` and `OutputDirectory` and read
+`InputDirectory`, and if not, exits with a message naming the folder and the user it runs as.
 
 Then:
 
