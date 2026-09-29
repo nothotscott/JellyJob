@@ -153,7 +153,7 @@ the section and the name. Relative paths resolve against the app's directory.
 | --- | --- | --- |
 | `JellyJob__InputDirectory` | *(unset)* | Jellyfin's recordings folder, as mounted here. Enables the Recordings page, finding recordings Jellyfin mounts at a different path, and mirroring its folders in the output. Must exist if set. |
 | `JellyJob__OutputDirectory` | `/output` | Where processed recordings are written; a separate Jellyfin library. |
-| `JellyJob__DataDirectory` | `/data` | `jobs.json` (job history), Data Protection keys, and comskip's scratch files. |
+| `JellyJob__DataDirectory` | `/data` | `jobs.json` (job history), Data Protection keys, and scratch space. A running job keeps a remuxed copy of its recording here, so leave free space about the size of your largest recording. |
 | `JellyJob__AdHandling` | `Mark` | `Mark` or `Cut`. |
 | `JellyJob__VideoEncoder` | `hevc_nvenc` | Any ffmpeg encoder: `h264_nvenc`, `av1_nvenc`, `libx265`, `libx264`... `*_nvenc` uses `-cq`, anything else `-crf`. |
 | `JellyJob__VideoQuality` | `26` | `-cq`/`-crf`, 0–51. Lower is better and bigger. |

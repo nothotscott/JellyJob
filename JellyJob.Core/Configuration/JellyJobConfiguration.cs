@@ -9,7 +9,8 @@ namespace JellyJob.Core.Configuration
         public const string SectionName = "JellyJob";
 
         /// JellyJob's own state: the job history (jobs.json), the Data Protection keys, and scratch space
-        /// for comskip (work/).
+        /// (work/). While a job runs, work/ holds a remuxed copy of the recording, so it needs free space
+        /// about the size of the largest recording.
         public string DataDirectory { get; set; } = "/data";
 
         /// Where processed recordings are written; meant to be its own Jellyfin library.

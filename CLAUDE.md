@@ -18,7 +18,8 @@ with `JellyJobConfiguration`.
   (`JobQueue` — a channel feeding the worker, plus startup recovery; `RecordingPath` validation),
   `Stores/` (`JsonRecordingJobStore`: `{DataDirectory}/jobs.json`, cached in memory, write-then-rename via
   `JsonFile` — same pattern as LinTV), `Pipeline/`:
-  - `RecordingPipeline` — orchestrates: comskip → transcode to `<out>.mkv.partial` → rename → write or
+  - `RecordingPipeline` — orchestrates: remux (`-c copy`) into `work/` → comskip and the transcode both
+    read that copy, never the original → transcode to `<out>.mkv.partial` → rename → write or
     delete the `.edl` → copy `.nfo`/`.jpg`/`.png` sidecars. Output path mirrors folders below
     `InputDirectory` (`OutputPathFor`). Scratch in `{DataDirectory}/work/{jobId}`.
   - `ComskipAdDetector` — runs comskip with `--ini= --output=<work>` and parses the `.edl` it writes.
@@ -66,7 +67,18 @@ No CSS framework: the UI is hand-written `wwwroot/css/site.css` with light/dark 
 - Central package management: versions go in `Directory.Packages.props`, never in a csproj. The
   Dockerfile copies it before `dotnet restore`.
 - The .NET 10 base images are Ubuntu 24.04 (noble), not Debian — `apt-get install` Ubuntu package names.
-  `ffmpeg` (6.1, NVENC enabled) and `comskip` (universe) both come from Ubuntu.
+  `ffmpeg` (6.1, NVENC enabled) comes from Ubuntu. **comskip is built from upstream** in the Dockerfile's
+  `comskip` stage (pinned commit, `ubuntu:24.04` so it links against the same libav* as the runtime).
+  Ubuntu's `comskip` package (0.82.011, a 2023 snapshot) segfaulted (exit 139, `fclose` on a corrupted
+  `FILE*`) in logo detection on a real recording with a signal-dropout gap; upstream 0.83.001 didn't.
+- **Recordings have timestamp gaps where the signal dropped** (a real one jumped 1145 s forward 22 min in).
+  ffmpeg closes gaps when reading; comskip keeps them, so its break times after a gap were off by the gap
+  against the transcode's timeline. Hence the remux step: both tools read the same gapless copy. Verified
+  on that recording: Mark output 3507 s with every break inside it; Cut output 2937.60 s vs 2937.62
+  expected. The remux also stopped Ubuntu's comskip from crashing on it.
+- **comskip crash fallback** (`ComskipAdDetector`): exit ≥128 (signal) or <0 (Windows NTSTATUS) → retry
+  once with `--detectmethod=<ini value minus 2>` (logo off; CLI overrides the ini). Verified with a
+  wrapper that SIGSEGVs unless given `--detectmethod`.
 - **comskip's exit codes swap by platform** (`mpeg2dec.c`: `exit(result)` on Windows, `exit(!result)`
   elsewhere): 0/1 are both success, anything else is an error. Whether ads were found is read from the
   `.edl`, never the exit code.

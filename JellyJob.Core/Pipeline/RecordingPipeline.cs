@@ -45,16 +45,23 @@ namespace JellyJob.Core.Pipeline
             Directory.CreateDirectory(workDirectory);
             try
             {
-                job.Stage = "Detecting ads";
+                // Everything below works from this copy, never the original: comskip's times and the
+                // transcode's timeline only line up if both read the same gapless timestamps. Same base name
+                // as the recording, which is what comskip names its .edl after.
+                job.Stage = "Preparing";
                 job.Progress = null;
-                var breaks = await AdDetector.DetectAsync(job.Path, workDirectory, ct);
+                var remuxedPath = Path.Combine(workDirectory, Path.GetFileName(job.Path));
+                await Transcoder.RemuxAsync(job.Path, remuxedPath, ct);
+
+                job.Stage = "Detecting ads";
+                var breaks = await AdDetector.DetectAsync(remuxedPath, workDirectory, ct);
                 job.AdBreakCount = breaks.Count;
 
                 var cut = config.AdHandling == AdHandling.Cut && breaks.Count > 0;
                 job.Stage = cut ? "Transcoding and cutting ads" : "Transcoding";
                 job.Progress = 0;
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-                await Transcoder.TranscodeAsync(job.Path, partialPath, cut ? breaks : [], p => job.Progress = p, ct);
+                await Transcoder.TranscodeAsync(remuxedPath, partialPath, cut ? breaks : [], p => job.Progress = p, ct);
                 File.Move(partialPath, outputPath, overwrite: true);
 
                 // Always rewritten or removed, so re-running in the other mode doesn't leave a stale one.

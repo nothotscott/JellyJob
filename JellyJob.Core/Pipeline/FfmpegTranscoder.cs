@@ -52,6 +52,24 @@ namespace JellyJob.Core.Pipeline
                 AudioArguments(audioStreams),
                 "-max_muxing_queue_size 4096 -f matroska");
 
+            await RunAsync(inputPath, outputPath, arguments, options, ct,
+                outputDuration > TimeSpan.Zero ? p => p.NotifyOnProgress(onProgress, outputDuration) : null);
+        }
+
+        /// Broadcast recordings often have timestamp jumps where the signal dropped: one real recording
+        /// jumped 1145 s forward 22 minutes in. ffmpeg closes such gaps when it reads the file, comskip
+        /// doesn't, so comskip's break times after a gap would be off by the gap in the output. A stream copy
+        /// through ffmpeg gives both tools the same gapless timeline to work from. Video and audio only:
+        /// data streams (SCTE-35 and the like) aren't wanted in the output anyway.
+        public async Task RemuxAsync(string inputPath, string outputPath, CancellationToken ct)
+        {
+            var options = new FFOptions { BinaryFolder = Config.Value.FfmpegDirectory ?? string.Empty };
+            await RunAsync(inputPath, outputPath, "-map 0:v:0 -map 0:a? -c copy -f mpegts", options, ct);
+        }
+
+        private async Task RunAsync(string inputPath, string outputPath, string arguments, FFOptions options,
+            CancellationToken ct, Action<FFMpegArgumentProcessor>? configure = null)
+        {
             var tail = new Queue<string>();
             var processor = FFMpegArguments
                 .FromFileInput(inputPath)
@@ -65,7 +83,7 @@ namespace JellyJob.Core.Pipeline
                     }
                 })
                 .CancellableThrough(ct);
-            if (outputDuration > TimeSpan.Zero) processor.NotifyOnProgress(onProgress, outputDuration);
+            configure?.Invoke(processor);
 
             Logger.LogInformation("ffmpeg {Arguments}", processor.Arguments);
             var succeeded = await processor.ProcessAsynchronously(throwOnError: false, options);
